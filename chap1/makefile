@@ -20,4 +20,4 @@ interp.o: interp.c interp.h
 	cc -g -c interp.c
 
 clean: 
-	rm -f a.out util.o prog1.o slp.o main.o maxargs.o
+	rm -f a.out util.o prog1.o slp.o main.o maxargs.o interp.o
