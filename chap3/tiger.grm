@@ -32,12 +32,141 @@ void yyerror(char *s)
 
 %start program
 
+%nonassoc DO OF
+%nonassoc THEN /* ELSE must come after THEN! */
+%nonassoc ELSE
+%left SEMICOLON
+%left ASSIGN
+%left OR
+%left AND
+%nonassoc EQ NEQ GT LT GE LE
+%left PLUS MINUS
+%left TIMES DIVIDE
+%left UMINUS
+
 %%
 
-program:	exp
+program: expression
 
-exp:   ID
+expression
+        : INT
+        | STRING
+        | BREAK
+        | NIL
+        | lvalue
+        | assignment
+        | selection
+        | iteration
+        | function_call
+        | arithmetic_expression
+        | comparison
+        | boolean_expression
+        | MINUS expression %prec UMINUS
+        | ID LBRACE field_assignments RBRACE
+        | ID LBRACK expression RBRACK OF expression
+        | LPAREN RPAREN
+        | LPAREN expression_sequence RPAREN
+        | LET declaration_sequence IN END
+        | LET declaration_sequence IN expression_sequence END
+
+lvalue
+        : ID lvalue_extension
+
+lvalue_extension
+        : /* empty */
+        | DOT ID lvalue_extension
+        | LBRACK expression RBRACK lvalue_extension
+
+assignment
+        : lvalue ASSIGN expression
+
+function_call
+        : ID LPAREN RPAREN
+        | ID LPAREN expression_list RPAREN
+
+arithmetic_expression
+        : expression PLUS expression
+        | expression MINUS expression
+        | expression TIMES expression
+        | expression DIVIDE expression
+
+comparison
+        : expression EQ expression
+        | expression NEQ expression
+        | expression GT expression
+        | expression LT expression 
+        | expression GE expression 
+        | expression LE expression 
+
+boolean_expression
+        : expression AND expression
+        | expression OR expression
+
+field_assignments
+        : /* empty */
+        | field_assignment_list
+
+field_assignment_list
+        : field_assignment
+        | field_assignment_list COMMA field_assignment
+
+field_assignment
+        : ID EQ expression
+
+declaration_sequence
+        : /* empty */
+        | declaration declaration_sequence
+
+declaration
+        : type_declaration
+        | variable_declaration
+        | function_declaration
+
+type_declaration
+        : TYPE ID EQ type
+
+type
+        : ID
+        | LBRACE type_fields RBRACE
+        | ARRAY OF ID
+
+type_fields
+        : /* empty */
+        | type_field_list
+
+type_field_list
+        : ID COLON ID
+        | type_field_list COMMA ID COLON ID
+
+variable_declaration
+        : VAR ID ASSIGN expression
+        | VAR ID COLON ID ASSIGN expression
+
+function_declaration
+        : FUNCTION ID LPAREN type_fields RPAREN EQ expression
+        | FUNCTION ID LPAREN type_fields RPAREN COLON ID EQ expression
+
+selection
+        : IF expression THEN expression ELSE expression
+        | IF expression THEN expression
+
+iteration
+        : WHILE expression DO expression
+        | FOR ID ASSIGN expression TO expression DO expression
+
+expression_sequence
+        : expression
+        | expression_sequence SEMICOLON expression
+
+expression_list
+        : expression
+        | expression_list COMMA expression
 
 
+/* ERROR RECOVERY RULES */
 
-	
+expression
+        : LPAREN error RPAREN
+
+expression_sequence
+        : error expression

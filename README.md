@@ -2,7 +2,7 @@
 My solutions of Modern Compiler Implementation in C.
 - [x] solutions of chap1 2021/04/17
 - [x] solutions of chap2 2021/04/19
-- [ ] solutions of chap3
+- [x] solutions of chap3 2021/04/20
 - [ ] solutions of chap4
 - [ ] solutions of chap5
 - [ ] solutions of chap6
