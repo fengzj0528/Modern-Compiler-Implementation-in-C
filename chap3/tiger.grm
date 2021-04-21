@@ -5,18 +5,33 @@
 
 int yylex(void); /* function prototype */
 
-void yyerror(char *s)
-{
- EM_error(EM_tokPos, "%s", s);
+void yyerror(char *s) {
+  EM_error(EM_tokPos, "%s", s);
 }
-%}
 
+%}
 
 %union {
 	int pos;
 	int ival;
 	string sval;
-	}
+  }
+
+%nonassoc LOW
+%nonassoc TYPE FUNCTION
+%nonassoc ID
+%nonassoc LBRACK
+%nonassoc DO OF
+%nonassoc THEN
+%nonassoc ELSE
+%left SEMICOLON
+%nonassoc ASSIGN
+%left OR
+%left AND
+%nonassoc EQ NEQ LT LE GT GE
+%left PLUS MINUS
+%left TIMES DIVIDE
+%left UMINUS
 
 %token <sval> ID STRING
 %token <ival> INT
@@ -28,145 +43,107 @@ void yyerror(char *s)
   AND OR ASSIGN
   ARRAY IF THEN ELSE WHILE FOR TO DO LET IN END OF 
   BREAK NIL
-  FUNCTION VAR TYPE 
+  FUNCTION VAR TYPE
 
 %start program
 
-%nonassoc DO OF
-%nonassoc THEN /* ELSE must come after THEN! */
-%nonassoc ELSE
-%left SEMICOLON
-%left ASSIGN
-%left OR
-%left AND
-%nonassoc EQ NEQ GT LT GE LE
-%left PLUS MINUS
-%left TIMES DIVIDE
-%left UMINUS
-
 %%
 
-program: expression
+program: exp
 
-expression
-        : INT
-        | STRING
-        | BREAK
-        | NIL
-        | lvalue
-        | assignment
-        | selection
-        | iteration
-        | function_call
-        | arithmetic_expression
-        | comparison
-        | boolean_expression
-        | MINUS expression %prec UMINUS
-        | ID LBRACE field_assignments RBRACE
-        | ID LBRACK expression RBRACK OF expression
-        | LPAREN RPAREN
-        | LPAREN expression_sequence RPAREN
-        | LET declaration_sequence IN END
-        | LET declaration_sequence IN expression_sequence END
+exp: lvalue
+   | NIL
+   | LPAREN RPAREN
+   | INT
+   | STRING
+   | MINUS exp %prec UMINUS
+   | func_call
+   | arith_exp
+   | cmp_exp
+   | bool_exp
+   | record_create
+   | array_create
+   | lvalue ASSIGN exp
+   | IF exp THEN exp ELSE exp
+   | IF exp THEN exp
+   | WHILE exp DO exp
+   | FOR ID ASSIGN exp TO exp DO exp
+   | BREAK
+   | LET decs IN expseq END
+   | LPAREN expseq RPAREN
 
-lvalue
-        : ID lvalue_extension
+lvalue: ID
+      | ID LBRACK exp RBRACK
+      | lvalue LBRACK exp RBRACK
+      | lvalue DOT ID
 
-lvalue_extension
-        : /* empty */
-        | DOT ID lvalue_extension
-        | LBRACK expression RBRACK lvalue_extension
+func_call: ID LPAREN explist RPAREN
 
-assignment
-        : lvalue ASSIGN expression
+explist:
+       | explist_nonempty
 
-function_call
-        : ID LPAREN RPAREN
-        | ID LPAREN expression_list RPAREN
+explist_nonempty: exp
+                | explist_nonempty COMMA exp
 
-arithmetic_expression
-        : expression PLUS expression
-        | expression MINUS expression
-        | expression TIMES expression
-        | expression DIVIDE expression
+arith_exp: exp PLUS exp
+         | exp MINUS exp
+         | exp TIMES exp
+         | exp DIVIDE exp
 
-comparison
-        : expression EQ expression
-        | expression NEQ expression
-        | expression GT expression
-        | expression LT expression 
-        | expression GE expression 
-        | expression LE expression 
+cmp_exp: exp EQ exp
+       | exp NEQ exp
+       | exp LT exp
+       | exp LE exp
+       | exp GT exp
+       | exp GE exp
 
-boolean_expression
-        : expression AND expression
-        | expression OR expression
+bool_exp: exp AND exp
+        | exp OR exp
 
-field_assignments
-        : /* empty */
-        | field_assignment_list
+record_create: ID LBRACE record_create_list RBRACE
 
-field_assignment_list
-        : field_assignment
-        | field_assignment_list COMMA field_assignment
+record_create_list: 
+                  | record_create_list_nonempty
 
-field_assignment
-        : ID EQ expression
+record_create_list_nonempty: record_create_field
+                           | record_create_list_nonempty COMMA record_create_field
 
-declaration_sequence
-        : /* empty */
-        | declaration declaration_sequence
+record_create_field: ID EQ exp
 
-declaration
-        : type_declaration
-        | variable_declaration
-        | function_declaration
+array_create: ID LBRACK exp RBRACK OF exp
 
-type_declaration
-        : TYPE ID EQ type
+decs:
+    | decs dec
 
-type
-        : ID
-        | LBRACE type_fields RBRACE
-        | ARRAY OF ID
+dec: tydeclist
+   | vardec
+   | fundeclist
 
-type_fields
-        : /* empty */
-        | type_field_list
+tydeclist: tydec %prec LOW
+         | tydec tydeclist
 
-type_field_list
-        : ID COLON ID
-        | type_field_list COMMA ID COLON ID
+tydec: TYPE ID EQ ty
 
-variable_declaration
-        : VAR ID ASSIGN expression
-        | VAR ID COLON ID ASSIGN expression
+ty: ID
+  | LBRACE tyfields RBRACE
+  | ARRAY OF ID
 
-function_declaration
-        : FUNCTION ID LPAREN type_fields RPAREN EQ expression
-        | FUNCTION ID LPAREN type_fields RPAREN COLON ID EQ expression
+tyfields:
+        | tyfields_nonempty
 
-selection
-        : IF expression THEN expression ELSE expression
-        | IF expression THEN expression
+tyfields_nonempty: tyfield
+                 | tyfields_nonempty COMMA tyfield
 
-iteration
-        : WHILE expression DO expression
-        | FOR ID ASSIGN expression TO expression DO expression
+tyfield: ID COLON ID
 
-expression_sequence
-        : expression
-        | expression_sequence SEMICOLON expression
+vardec: VAR ID ASSIGN exp
+      | VAR ID COLON ID ASSIGN exp
 
-expression_list
-        : expression
-        | expression_list COMMA expression
+fundeclist: fundec %prec LOW
+          | fundec fundeclist
 
+fundec: FUNCTION ID LPAREN tyfields RPAREN EQ exp
+      | FUNCTION ID LPAREN tyfields RPAREN COLON ID EQ exp
 
-/* ERROR RECOVERY RULES */
-
-expression
-        : LPAREN error RPAREN
-
-expression_sequence
-        : error expression
+expseq: exp
+      | expseq SEMICOLON exp
